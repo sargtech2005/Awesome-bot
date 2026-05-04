@@ -63,6 +63,14 @@ async function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// ── Health check HTTP server (required by Fly.io [http_service] on port 8080) ──
+const http = require('http');
+const HEALTH_PORT = parseInt(process.env.PORT || '8080', 10);
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ status: 'ok', bot: 'awesome-bot', uptime: process.uptime() }));
+}).listen(HEALTH_PORT, () => logger.info(`🌐 Health server on :${HEALTH_PORT}`));
+
 // ── Start ──────────────────────────────────────────────────────────────────────
 async function start() {
   try {

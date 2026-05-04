@@ -1,8 +1,8 @@
-# fly.toml — OmegaTech Claude Bot
-# Run: fly launch (first time) or fly deploy (updates)
+# fly.toml — Awesome Bot (v2 manifest format)
+# Run: fly deploy
 
-app = "omegatech-claude-bot"
-primary_region = "iad"  # Change to your nearest: lhr, fra, sin, syd, etc.
+app = "awesome-bot"
+primary_region = "iad"  # Change to nearest: lhr, fra, sin, syd, etc.
 
 [build]
   dockerfile = "Dockerfile"
@@ -18,34 +18,27 @@ primary_region = "iad"  # Change to your nearest: lhr, fra, sin, syd, etc.
 [deploy]
   release_command = "npx prisma migrate deploy"
 
-[[vm]]
-  memory = "8gb"
+# Single VM block — NOT [[vm]] array (array format breaks v2 manifest parsing)
+[vm]
+  memory = "2gb"
   cpu_kind = "performance"
-  cpus = 2
+  cpus = 1
 
-# No HTTP server needed — this is a polling bot
-# But Fly requires a port. We use a minimal health check.
-[[services]]
+# Minimal HTTP service for Fly health checks
+# Bot uses long-polling, not webhooks — but Fly requires a port binding
+[http_service]
   internal_port = 8080
-  protocol = "tcp"
-  auto_stop_machines = false   # Keep bot always running!
+  force_https = true
+  auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
 
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  [services.concurrency]
+  [http_service.concurrency]
     type = "connections"
     hard_limit = 100
     soft_limit = 80
 
-# Persistent volume for temp files (optional — temp is ephemeral)
+# Persistent volume — uncomment after: fly volumes create bot_temp --size 1
 # [[mounts]]
 #   source = "bot_temp"
 #   destination = "/app/temp"

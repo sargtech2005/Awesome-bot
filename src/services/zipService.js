@@ -85,6 +85,28 @@ async function readFile(extractDir, relPath) {
 }
 
 /**
+ * Move / rename a file inside extracted dir
+ */
+async function moveFile(extractDir, oldRelPath, newRelPath) {
+  const oldFull = path.join(extractDir, oldRelPath);
+  const newFull = path.join(extractDir, newRelPath);
+  if (!await fs.pathExists(oldFull)) throw new Error(`File not found: ${oldRelPath}`);
+  await fs.ensureDir(path.dirname(newFull));
+  await fs.move(oldFull, newFull, { overwrite: false });
+  logger.info(`Moved: ${oldRelPath} → ${newRelPath}`);
+}
+
+/**
+ * Delete a file inside extracted dir
+ */
+async function deleteFile(extractDir, relPath) {
+  const fullPath = path.join(extractDir, relPath);
+  if (!await fs.pathExists(fullPath)) throw new Error(`File not found: ${relPath}`);
+  await fs.remove(fullPath);
+  logger.info(`Deleted: ${relPath}`);
+}
+
+/**
  * Write content to a file inside extracted dir
  */
 async function writeFile(extractDir, relPath, content) {
@@ -124,7 +146,7 @@ async function addDirToZip(zip, dir, base) {
  * Get all readable text files from extracted zip as a combined context string
  * (used when sending full project to Claude)
  */
-async function buildProjectContext(manifest, extractDir, maxTotalChars = 12000) {
+async function buildProjectContext(manifest, extractDir, maxTotalChars = 40000) {
   let context = '';
   for (const file of manifest) {
     if (!['code', 'text'].includes(file.type)) continue;
@@ -147,6 +169,8 @@ module.exports = {
   formatManifest,
   readFile,
   writeFile,
+  moveFile,
+  deleteFile,
   packZip,
   buildProjectContext,
 };

@@ -4,8 +4,8 @@
 const path = require('path');
 const fs = require('fs-extra');
 const { getOrCreateUser, isUserBanned } = require('../services/userService');
-const { askClaude, askClaudeWithContext, askClaudeRaw } = require('../services/claudeService');
-const { readFile, writeFile, packZip, buildProjectContext, buildManifest, formatManifest } = require('../services/zipService');
+const { askClaude, askClaudeStream, askClaudeWithContext, askClaudeRaw } = require('../services/claudeService');
+const { readFile, writeFile, moveFile, deleteFile, packZip, buildProjectContext, buildManifest, formatManifest } = require('../services/zipService');
 const { cloneRepo, isGitHubUrl, extractRepoName } = require('../services/githubService');
 const { saveProject, getUserProjects, formatProjectList } = require('../services/projectService');
 const { incrementStat } = require('../services/statsService');
@@ -98,6 +98,14 @@ function registerMessageHandler(bot, zipSessionStore, pendingEditsStore, pending
         const readMatch = text.match(/^read\s+(.+)/i);
         if (readMatch) return await handleZipRead(bot, chatId, userId, zipSession, readMatch[1].trim());
 
+        // mv src dst  OR  rename src dst  OR  move src dst
+        const moveMatch = text.match(/^(?:mv|move|rename)\s+(\S+)\s+(\S+)/i);
+        if (moveMatch) return await handleZipMove(bot, chatId, userId, zipSession, moveMatch[1].trim(), moveMatch[2].trim());
+
+        // rm path  OR  delete path
+        const deleteMatch = text.match(/^(?:rm|delete)\s+(\S+)/i);
+        if (deleteMatch) return await handleZipDelete(bot, chatId, userId, zipSession, deleteMatch[1].trim());
+
         const editMatch = text.match(/^edit\s+(.+?)\s*[—\-–]{1,2}\s*(.+)/is);
         if (editMatch) return await handleZipEditWithDiff(bot, chatId, userId, zipSession, editMatch[1].trim(), editMatch[2].trim(), dbUser);
 
@@ -114,17 +122,42 @@ function registerMessageHandler(bot, zipSessionStore, pendingEditsStore, pending
         return await handleCodeGenAndZip(bot, chatId, userId, text, dbUser);
       }
 
-      // ── PLAIN CLAUDE CHAT ────────────────────────────────────────
-      const statusMsg = await bot.sendMessage(chatId, '🤖 Thinking...');
-      const response = await askClaude(userId, text, dbUser);
-      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+      // ── PLAIN CLAUDE CHAT (streaming) ────────────────────────────
+      const statusMsg = await bot.sendMessage(chatId, '🤖 _Thinking..._', { parse_mode: 'Markdown' });
 
-      // Extract and save memories
-      await extractAndSaveMemory(userId, dbUser.id, text);
+      let accumulated = '';
+      let lastEditAt = 0;
+      const EDIT_INTERVAL_MS = 900; // Telegram rate-limits edits to ~1/s per message
 
-      for (const chunk of splitIntoChunks(response)) {
-        await bot.sendMessage(chatId, chunk);
+      const fullResponse = await askClaudeStream(userId, text, dbUser, async (delta) => {
+        accumulated += delta;
+        const now = Date.now();
+        if (now - lastEditAt >= EDIT_INTERVAL_MS && accumulated.trim()) {
+          lastEditAt = now;
+          try {
+            await bot.editMessageText(accumulated + ' ▌', {
+              chat_id: chatId,
+              message_id: statusMsg.message_id,
+            });
+          } catch (_) {} // ignore Telegram "message not modified" errors
+        }
+      });
+
+      // Final edit — remove cursor, full text
+      try {
+        await bot.editMessageText(fullResponse || accumulated, {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        });
+      } catch (_) {
+        // If final edit fails (e.g. >4096 chars), delete and send in chunks
+        await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+        for (const chunk of splitIntoChunks(fullResponse || accumulated)) {
+          await bot.sendMessage(chatId, chunk);
+        }
       }
+
+      await extractAndSaveMemory(userId, dbUser.id, text);
 
     } catch (err) {
       logger.error(`messageHandler error for ${userId}: ${err.message}`);
@@ -279,6 +312,34 @@ async function handleCodeGenAndZip(bot, chatId, userId, instruction, dbUser) {
   } catch (err) {
     logger.error(`Code gen error: ${err.message}`);
     await bot.editMessageText(`❌ Code generation failed: ${err.message}`, { chat_id: chatId, message_id: statusMsg.message_id });
+  }
+}
+
+// ── ZIP MOVE / RENAME ──────────────────────────────────────────────────────────
+async function handleZipMove(bot, chatId, userId, session, oldPath, newPath) {
+  try {
+    await moveFile(session.extractDir, oldPath, newPath);
+    session.manifest = buildManifest(session.extractDir);
+    await bot.sendMessage(chatId,
+      `✅ Moved: \`${oldPath}\` → \`${newPath}\`\n\nUse the menu to browse or download.`,
+      { parse_mode: 'Markdown', reply_markup: zipMainKeyboard() }
+    );
+  } catch (err) {
+    await bot.sendMessage(chatId, `❌ Move failed: ${err.message}`);
+  }
+}
+
+// ── ZIP DELETE ─────────────────────────────────────────────────────────────────
+async function handleZipDelete(bot, chatId, userId, session, relPath) {
+  try {
+    await deleteFile(session.extractDir, relPath);
+    session.manifest = buildManifest(session.extractDir);
+    await bot.sendMessage(chatId,
+      `🗑️ Deleted: \`${relPath}\`\n\nUse the menu to browse or download.`,
+      { parse_mode: 'Markdown', reply_markup: zipMainKeyboard() }
+    );
+  } catch (err) {
+    await bot.sendMessage(chatId, `❌ Delete failed: ${err.message}`);
   }
 }
 
