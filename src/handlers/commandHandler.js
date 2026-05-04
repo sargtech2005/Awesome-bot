@@ -1,4 +1,4 @@
-// src/handlers/commandHandler.js — v2
+// src/handlers/commandHandler.js — v3 (inline buttons, no /cmd spam)
 
 const { getOrCreateUser, getUserHistory, getAllUsers, setUserBanned } = require('../services/userService');
 const { resetSession, setMode } = require('../services/claudeService');
@@ -6,8 +6,7 @@ const { getUserProjects, formatProjectList } = require('../services/projectServi
 const { listMemories, clearMemories } = require('../services/memoryService');
 const { getUserStats, getGlobalStats, formatGlobalStats, formatUserStats } = require('../services/statsService');
 const { cleanUserTempDir } = require('../utils/helpers');
-const { modeKeyboard, projectListKeyboard, adminKeyboard, memoryKeyboard } = require('../utils/keyboards');
-const { isGitHubUrl } = require('../services/githubService');
+const { modeKeyboard, projectListKeyboard, adminKeyboard, memoryKeyboard, mainMenuKeyboard } = require('../utils/keyboards');
 const logger = require('../utils/logger');
 const prisma = require('../utils/db');
 
@@ -21,7 +20,7 @@ function registerCommands(bot) {
     const name = msg.from.first_name || 'there';
     await bot.sendMessage(msg.chat.id,
       `👋 *Welcome, ${name}!*\n\n` +
-      `I'm the *D'Awesome Claude AI Bot* v2 — powered by Claude-pro.\n\n` +
+      `I'm *D'Awesome Bot* — your Claude AI assistant.\n\n` +
       `*What I can do:*\n` +
       `💬 Chat with Claude (with persistent memory)\n` +
       `🖼️ Analyze images, screenshots & diagrams\n` +
@@ -31,50 +30,22 @@ function registerCommands(bot) {
       `💻 Generate code projects → download as ZIP\n` +
       `🧠 Remembers facts about you across sessions\n` +
       `📂 Save & reload named project workspaces\n\n` +
-      `*Quick Commands:*\n` +
-      `/mode — Switch AI mode (chat/code/debug/explain)\n` +
-      `/projects — Your saved projects\n` +
-      `/memory — View what I remember about you\n` +
-      `/stats — Your usage stats\n` +
-      `/help — Full command list\n\n` +
-      `Send a message, image, file, ZIP, or GitHub URL to get started! 🚀`,
-      { parse_mode: 'Markdown' }
+      `Send a message, image, file, ZIP, or GitHub URL to get started! 🚀\n\n` +
+      `Use the buttons below to access all features:`,
+      { parse_mode: 'Markdown', reply_markup: mainMenuKeyboard() }
     );
   });
 
   // ── /help ──────────────────────────────────────────────────────
   bot.onText(/\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id,
-      `🤖 *D'Awesome Bot v2 — Help*\n\n` +
-      `*🖼️ Images:*\nSend any photo or image file → Claude analyzes it\nAdd a caption for specific instructions:\n` +
-      `  • (no caption) = general description\n` +
-      `  • \`what does this code do\` = code analysis\n` +
-      `  • \`find the bug\` = debug mode\n` +
-      `  • \`describe the UI\` = design review\n` +
-      `  • \`extract all text\` = OCR\n\n` +
-      `*📦 ZIP Workspace:*\nSend a ZIP → inline keyboard appears\n` +
-      `Browse files, edit, generate new files, download modified ZIP\n\n` +
-      `*🐙 GitHub:*\nPaste any GitHub URL → bot clones it as a workspace\n\n` +
-      `*Commands:*\n` +
-      `/start — Welcome\n` +
-      `/help — This message\n` +
-      `/mode — Switch AI mode\n` +
-      `/reset — Clear session & history\n` +
-      `/history — Last 10 messages\n` +
-      `/projects — Saved project workspaces\n` +
-      `/memory — View/clear remembered facts\n` +
-      `/stats — Your usage statistics\n` +
-      `/myid — Your Telegram ID\n` +
-      `/clear — Delete temp files\n` +
-      `/pack — Download current ZIP\n` +
-      `/files — List ZIP workspace files\n\n` +
-      `*Admin only:*\n` +
-      `/admin — Admin dashboard\n` +
-      `/ban <id> — Ban user\n` +
-      `/unban <id> — Unban user\n` +
-      `/broadcast <msg> — Message all users\n` +
-      `/globalstats — Global bot statistics`,
-      { parse_mode: 'Markdown' }
+      `🤖 *D'Awesome Bot — Help*\n\n` +
+      `*🖼️ Images:* Send any photo → Claude analyzes it\n` +
+      `*📦 ZIP:* Send a ZIP → inline browser appears\n` +
+      `*🐙 GitHub:* Paste a GitHub URL → bot clones it\n` +
+      `*💬 Chat:* Just type anything to talk to Claude\n\n` +
+      `Use the buttons below to switch modes, view projects, stats and more:`,
+      { parse_mode: 'Markdown', reply_markup: mainMenuKeyboard() }
     );
   });
 
@@ -97,7 +68,7 @@ function registerCommands(bot) {
     await getOrCreateUser(msg);
     await resetSession(msg.from.id);
     await cleanUserTempDir(msg.from.id);
-    await bot.sendMessage(msg.chat.id, '🔄 Session reset! Fresh start — send a message to begin.');
+    await bot.sendMessage(msg.chat.id, '🔄 Session reset! Fresh start — send a message to begin.', { reply_markup: mainMenuKeyboard() });
   });
 
   // ── /history ───────────────────────────────────────────────────
@@ -108,7 +79,7 @@ function registerCommands(bot) {
       orderBy: { createdAt: 'desc' },
       take: 10,
     });
-    if (!history.length) return bot.sendMessage(msg.chat.id, '📭 No history yet.');
+    if (!history.length) return bot.sendMessage(msg.chat.id, '📭 No history yet.', { reply_markup: mainMenuKeyboard() });
     const lines = history.reverse().map((m) =>
       `*${m.role === 'user' ? '👤 You' : '🤖 Claude'}:*\n${m.content.slice(0, 150)}${m.content.length > 150 ? '...' : ''}`
     ).join('\n\n---\n\n');
@@ -121,7 +92,7 @@ function registerCommands(bot) {
     const projects = await getUserProjects(dbUser.id);
     await bot.sendMessage(msg.chat.id, formatProjectList(projects), {
       parse_mode: 'Markdown',
-      reply_markup: projects.length ? projectListKeyboard(projects) : undefined,
+      reply_markup: projectListKeyboard(projects),
     });
   });
 
@@ -131,7 +102,7 @@ function registerCommands(bot) {
     const memories = await listMemories(dbUser.id);
     const text = memories.length
       ? `🧠 *What I remember about you:*\n\n` + memories.map((m) => `• *${m.key.replace(/_/g, ' ')}:* ${m.value}`).join('\n')
-      : '🧠 No memories stored yet.\n\nI automatically learn facts from your conversations (your name, stack, project type, etc.)';
+      : '🧠 No memories stored yet.\n\nI automatically learn facts from your conversations.';
     await bot.sendMessage(msg.chat.id, text, { parse_mode: 'Markdown', reply_markup: memoryKeyboard() });
   });
 
@@ -139,7 +110,7 @@ function registerCommands(bot) {
   bot.onText(/\/stats/, async (msg) => {
     const dbUser = await getOrCreateUser(msg);
     const stats = await getUserStats(dbUser.id);
-    await bot.sendMessage(msg.chat.id, formatUserStats(stats, dbUser), { parse_mode: 'Markdown' });
+    await bot.sendMessage(msg.chat.id, formatUserStats(stats, dbUser), { parse_mode: 'Markdown', reply_markup: mainMenuKeyboard() });
   });
 
   // ── /myid ──────────────────────────────────────────────────────
@@ -150,7 +121,7 @@ function registerCommands(bot) {
   // ── /clear ─────────────────────────────────────────────────────
   bot.onText(/\/clear/, async (msg) => {
     await cleanUserTempDir(msg.from.id);
-    await bot.sendMessage(msg.chat.id, '🗑️ Temp files cleared.');
+    await bot.sendMessage(msg.chat.id, '🗑️ Temp files cleared.', { reply_markup: mainMenuKeyboard() });
   });
 
   // ── /admin ─────────────────────────────────────────────────────
@@ -190,14 +161,14 @@ function registerCommands(bot) {
       try {
         await bot.sendMessage(String(user.telegramId), `📢 *Announcement:*\n\n${message}`, { parse_mode: 'Markdown' });
         sent++;
-        await new Promise((r) => setTimeout(r, 50)); // throttle
+        await new Promise((r) => setTimeout(r, 50));
       } catch (_) {}
     }
     await prisma.broadcastLog.create({ data: { message, sentTo: sent, sentBy: BigInt(msg.from.id) } });
     await bot.sendMessage(msg.chat.id, `📢 Broadcast sent to ${sent}/${users.length} users.`);
   });
 
-  logger.info('Commands registered (v2)');
+  logger.info('Commands registered (v3)');
 }
 
 module.exports = { registerCommands };

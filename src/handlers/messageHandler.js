@@ -12,7 +12,7 @@ const { incrementStat } = require('../services/statsService');
 const { extractAndSaveMemory } = require('../services/memoryService');
 const { getUserTempDir, splitIntoChunks, uniqueFilename } = require('../utils/helpers');
 const { rateLimiter } = require('../middleware/rateLimiter');
-const { zipMainKeyboard, projectListKeyboard, diffApprovalKeyboard, encodeFilePath, decodeFilePath } = require('../utils/keyboards');
+const { zipMainKeyboard, projectListKeyboard, diffApprovalKeyboard, encodeFilePath, decodeFilePath, mainMenuKeyboard } = require('../utils/keyboards');
 const logger = require('../utils/logger');
 
 // These are shared with callbackHandler
@@ -54,7 +54,7 @@ function registerMessageHandler(bot, zipSessionStore, pendingEditsStore, pending
             originalZip: zipSession.originalName,
             fileCount: zipSession.manifest?.length || 0,
           });
-          await bot.sendMessage(chatId, `💾 Project *"${text}"* saved! Use /projects to reload it.`, { parse_mode: 'Markdown' });
+          await bot.sendMessage(chatId, `💾 Project *"${text}"* saved!`, { parse_mode: 'Markdown', reply_markup: mainMenuKeyboard() });
           return;
         }
 
@@ -161,7 +161,7 @@ function registerMessageHandler(bot, zipSessionStore, pendingEditsStore, pending
 
     } catch (err) {
       logger.error(`messageHandler error for ${userId}: ${err.message}`);
-      await bot.sendMessage(chatId, `❌ Error: ${err.message}\n\nTry /reset if this keeps happening.`);
+      await bot.sendMessage(chatId, `❌ Error: ${err.message}\n\nTap Reset Session below if this keeps happening.`, { reply_markup: mainMenuKeyboard() });
     }
   });
 

@@ -2,6 +2,31 @@
 // All inline keyboard layouts for the bot
 
 /**
+ * Main menu keyboard shown in /start and /help
+ */
+function mainMenuKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        { text: '🎛️ Switch Mode', callback_data: 'menu:mode' },
+        { text: '📂 My Projects', callback_data: 'menu:projects' },
+      ],
+      [
+        { text: '🧠 Memory', callback_data: 'menu:memory' },
+        { text: '📊 My Stats', callback_data: 'menu:stats' },
+      ],
+      [
+        { text: '🔄 Reset Session', callback_data: 'menu:reset' },
+        { text: '🆔 My ID', callback_data: 'menu:myid' },
+      ],
+      [
+        { text: '🗑️ Clear Temp Files', callback_data: 'menu:clear' },
+      ],
+    ],
+  };
+}
+
+/**
  * Keyboard shown after a ZIP is loaded
  */
 function zipMainKeyboard() {
@@ -44,7 +69,7 @@ function fileBrowserKeyboard(manifest, page = 0, pageSize = 8) {
 
   const rows = [...fileRows];
   if (nav.length) rows.push(nav);
-  rows.push([{ text: '🔙 Back', callback_data: 'zip:menu' }]);
+  rows.push([{ text: '🔙 Back to Menu', callback_data: 'zip:menu' }]);
 
   return { inline_keyboard: rows };
 }
@@ -99,6 +124,7 @@ function modeKeyboard(currentMode) {
         text: m.mode === currentMode ? `✅ ${m.label}` : m.label,
         callback_data: `mode:${m.mode}`,
       })),
+      [{ text: '🔙 Main Menu', callback_data: 'menu:home' }],
     ],
   };
 }
@@ -107,11 +133,19 @@ function modeKeyboard(currentMode) {
  * Project list keyboard
  */
 function projectListKeyboard(projects) {
-  if (!projects.length) return { inline_keyboard: [[{ text: '❌ No projects', callback_data: 'noop' }]] };
+  if (!projects.length) {
+    return {
+      inline_keyboard: [
+        [{ text: '📭 No saved projects yet', callback_data: 'noop' }],
+        [{ text: '🔙 Main Menu', callback_data: 'menu:home' }],
+      ],
+    };
+  }
   const rows = projects.map((p) => [
     { text: `📂 ${p.name} (${p.fileCount} files)`, callback_data: `project:load:${p.id}` },
     { text: '🗑️', callback_data: `project:delete:${p.id}` },
   ]);
+  rows.push([{ text: '🔙 Main Menu', callback_data: 'menu:home' }]);
   return { inline_keyboard: rows };
 }
 
@@ -143,14 +177,13 @@ function memoryKeyboard() {
         { text: '📋 View Memories', callback_data: 'memory:list' },
         { text: '🗑️ Clear All', callback_data: 'memory:clear_confirm' },
       ],
+      [{ text: '🔙 Main Menu', callback_data: 'menu:home' }],
     ],
   };
 }
 
 // Encode file path for callback_data (max 64 bytes in Telegram)
 function encodeFilePath(relPath) {
-  // Base64-lite: just use a short hash index approach
-  // We store the mapping in memory
   return Buffer.from(relPath).toString('base64').slice(0, 40);
 }
 
@@ -170,6 +203,7 @@ function iconFor(type) {
 }
 
 module.exports = {
+  mainMenuKeyboard,
   zipMainKeyboard,
   fileBrowserKeyboard,
   fileActionKeyboard,
