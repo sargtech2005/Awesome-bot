@@ -1,6 +1,6 @@
-# 🤖 OmegaTech Claude AI Bot v2
+# 🤖 D'Awesome Claude AI Bot v2
 
-Production-grade Telegram bot powered by **OmegaTech Claude-pro API**.
+Production-grade Telegram bot powered by **D'Awesome Claude-pro API**.
 
 ## ✨ Full Feature List
 
@@ -32,7 +32,7 @@ src/
 │   ├── callbackHandler.js  # Inline keyboard buttons
 │   └── messageHandler.js  # Text routing
 ├── services/
-│   ├── claudeService.js    # OmegaTech API + modes + memory
+│   ├── claudeService.js    # D'Awesome API + modes + memory
 │   ├── userService.js      # User CRUD
 │   ├── fileService.js      # Telegram download
 │   ├── zipService.js       # ZIP operations
@@ -53,7 +53,7 @@ src/
 
 The bot supports **3 tiers** of image analysis:
 
-1. **OmegaTech Vision endpoint** — used if `/Claude-vision` exists on your API
+1. **D'Awesome Vision endpoint** — used if `/Claude-vision` exists on your API
 2. **Anthropic API direct** — set `ANTHROPIC_API_KEY` in `.env` (recommended)
 3. **Fallback** — asks user to describe the image in text
 
@@ -107,7 +107,7 @@ See `requirements.txt` for the full Pterodactyl setup checklist.
 | `BOT_TOKEN` | ✅ | Telegram bot token |
 | `ADMIN_CHAT_ID` | ✅ | Your Telegram user ID |
 | `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `CLAUDE_API_BASE` | ✅ | OmegaTech API URL |
+| `CLAUDE_API_BASE` | ✅ | D'Awesome API URL |
 | `ANTHROPIC_API_KEY` | ⭐ Recommended | For native image vision |
 | `MAX_FILE_SIZE_MB` | ❌ | Default: 50 |
 | `MAX_MESSAGES_PER_MINUTE` | ❌ | Default: 20 |

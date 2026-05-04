@@ -21,7 +21,7 @@ function registerCommands(bot) {
     const name = msg.from.first_name || 'there';
     await bot.sendMessage(msg.chat.id,
       `👋 *Welcome, ${name}!*\n\n` +
-      `I'm the *OmegaTech Claude AI Bot* v2 — powered by Claude-pro.\n\n` +
+      `I'm the *D'Awesome Claude AI Bot* v2 — powered by Claude-pro.\n\n` +
       `*What I can do:*\n` +
       `💬 Chat with Claude (with persistent memory)\n` +
       `🖼️ Analyze images, screenshots & diagrams\n` +
@@ -45,7 +45,7 @@ function registerCommands(bot) {
   // ── /help ──────────────────────────────────────────────────────
   bot.onText(/\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id,
-      `🤖 *OmegaTech Claude Bot v2 — Help*\n\n` +
+      `🤖 *D'Awesome Bot v2 — Help*\n\n` +
       `*🖼️ Images:*\nSend any photo or image file → Claude analyzes it\nAdd a caption for specific instructions:\n` +
       `  • (no caption) = general description\n` +
       `  • \`what does this code do\` = code analysis\n` +

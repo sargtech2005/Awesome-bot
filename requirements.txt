@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  OmegaTech Claude Bot v2 — Pterodactyl / Node.js Requirements
+#  D'Awesome Bot v2 — Pterodactyl / Node.js Requirements
 # ─────────────────────────────────────────────────────────────────────────────
 #
 #  This file is for reference and Pterodactyl panel documentation.
@@ -31,7 +31,7 @@ adm-zip@^0.5.14
 # ZIP file extraction and repacking
 
 axios@^1.7.2
-# HTTP client — OmegaTech API calls, Telegram file downloads, Anthropic API
+# HTTP client — D'Awesome API calls, Telegram file downloads, Anthropic API
 
 dotenv@^16.4.5
 # Load .env environment variables

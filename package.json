@@ -1,7 +1,7 @@
 {
-  "name": "omegatech-claude-bot",
+  "name": "dawesomebot",
   "version": "2.0.0",
-  "description": "OmegaTech Claude AI Telegram Bot v2 — ZIP IDE, GitHub clone, memory, admin dashboard, inline keyboards",
+  "description": "D'Awesome Claude AI Telegram Bot v2 — ZIP IDE, GitHub clone, memory, admin dashboard, inline keyboards",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

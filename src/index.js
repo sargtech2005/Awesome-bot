@@ -1,5 +1,5 @@
 // src/index.js — v2
-// OmegaTech Claude AI Telegram Bot — Entry Point
+// D'Awesome Claude AI Telegram Bot — Entry Point
 
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
@@ -83,13 +83,13 @@ async function start() {
     try {
       await bot.sendMessage(
         process.env.ADMIN_CHAT_ID,
-        `🚀 *OmegaTech Bot v2 started*\n@${me.username} is online.\n\n` +
+        `🚀 *D'Awesome Bot v2 started*\n@${me.username} is online.\n\n` +
         `Features: Image Vision ✅ | ZIP IDE ✅ | GitHub ✅ | Memory ✅ | Projects ✅`,
         { parse_mode: 'Markdown' }
       );
     } catch (_) {}
 
-    logger.info('🟢 OmegaTech Claude Bot v2 running');
+    logger.info("🟢 D'Awesome Bot v2 running");
   } catch (err) {
     logger.error(`Startup failed: ${err.message}`);
     process.exit(1);

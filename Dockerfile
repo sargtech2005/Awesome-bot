@@ -1,4 +1,4 @@
-# Dockerfile — OmegaTech Claude Bot
+# Dockerfile — D'Awesome Bot
 # Optimized for Fly.io (Node 20 LTS)
 
 FROM node:20-alpine AS base
@@ -12,7 +12,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 RUN npx prisma generate
 
 # ── Production image ──────────────────────────────────────────

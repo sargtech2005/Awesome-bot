@@ -69,7 +69,7 @@ function registerImageHandler(bot) {
       const userCaption = msg.caption?.trim() || '';
       const prompt = userCaption || detectPromptFromCaption(userCaption);
 
-      // Call OmegaTech API with image
+      // Call D'Awesome API with image
       const claudeResponse = await askClaudeWithImage(base64Image, mimeType, prompt, dbUser);
 
       // Save to history
@@ -170,13 +170,13 @@ function registerImageHandler(bot) {
 }
 
 /**
- * Send image to OmegaTech Claude API as base64
+ * Send image to D'Awesome Claude API as base64
  * The API accepts a prompt — we embed the base64 image data in a special format
  */
 async function askClaudeWithImage(base64Image, mimeType, prompt, dbUser) {
   try {
     // Build multimodal prompt — embed image as data URI description request
-    // Since the OmegaTech API is a GET endpoint with ?prompt=, we encode the image
+    // Since the D'Awesome API is a GET endpoint with ?prompt=, we encode the image
     // and ask Claude to process it using the vision-capable model
     const imageDataUri = `data:${mimeType};base64,${base64Image}`;
 
