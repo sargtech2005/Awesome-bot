@@ -168,6 +168,50 @@ function registerCommands(bot) {
     await bot.sendMessage(msg.chat.id, `📢 Broadcast sent to ${sent}/${users.length} users.`);
   });
 
+  // ── /apitest (admin) — test which AI API responds ─────────────
+  bot.onText(/\/apitest/, async (msg) => {
+    if (String(msg.from.id) !== String(ADMIN_CHAT_ID)) return bot.sendMessage(msg.chat.id, '🚫 Admin only.');
+    const axios = require('axios');
+    const results = [];
+    const OMEGA = process.env.CLAUDE_API_BASE || 'https://my-api-rzmb.onrender.com/api/ai/Claude-pro';
+    const testPrompt = 'Reply with exactly: OK';
+
+    // Test Anthropic
+    if (process.env.ANTHROPIC_API_KEY) {
+      try {
+        const t = Date.now();
+        const { data } = await axios.post(
+          'https://api.anthropic.com/v1/messages',
+          { model: 'claude-haiku-4-5-20251001', max_tokens: 50, messages: [{ role: 'user', content: testPrompt }] },
+          { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, timeout: 15000 }
+        );
+        results.push(`✅ Anthropic (${Date.now()-t}ms): ${data.content?.[0]?.text?.slice(0,30)}`);
+      } catch (e) { results.push(`❌ Anthropic: ${e.message.slice(0,60)}`); }
+    } else results.push('⏭️ Anthropic: No key set');
+
+    // Test Omega GET (confirmed: { success, sessionId, response })
+    try {
+      const t = Date.now();
+      const { data } = await axios.get(`${OMEGA}?prompt=${encodeURIComponent(testPrompt)}`, { timeout: 20000 });
+      if (data?.success && data?.response) {
+        results.push(`✅ Omega (${Date.now()-t}ms): "${data.response.slice(0,35)}" | session=${data.sessionId}`);
+      } else {
+        results.push(`⚠️ Omega responded but unexpected format: ${JSON.stringify(data).slice(0,60)}`);
+      }
+    } catch (e) { results.push(`❌ Omega: ${e.message.slice(0,80)}`); }
+
+
+    // Test Pollinations
+    try {
+      const t = Date.now();
+      const { data } = await axios.post('https://text.pollinations.ai/', { messages:[{role:'user',content:testPrompt}], model:'mistral' }, { headers:{'Content-Type':'application/json'}, timeout: 15000 });
+      const text = typeof data === 'string' ? data : JSON.stringify(data).slice(0,50);
+      results.push(`✅ Pollinations (${Date.now()-t}ms): ${text.slice(0,40)}`);
+    } catch (e) { results.push(`❌ Pollinations: ${e.message.slice(0,60)}`); }
+
+    await bot.sendMessage(msg.chat.id, `🔬 *API Test Results:*\n\n${results.join('\n')}`, { parse_mode: 'Markdown' });
+  });
+
   logger.info('Commands registered (v3)');
 }
 
