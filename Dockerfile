@@ -4,7 +4,7 @@
 FROM node:20-alpine AS base
 
 # Install dependencies for native modules
-RUN apk add --no-cache python3 make g++ dumb-init
+RUN apk add --no-cache python3 make g++ dumb-init openssl openssl-dev openssl
 
 WORKDIR /app
 
