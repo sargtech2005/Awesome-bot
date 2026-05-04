@@ -335,8 +335,20 @@ function registerCallbackHandler(bot, zipSessions) {
 
         if (data === 'admin:users') {
           const users = await prisma.user.findMany({ orderBy: { createdAt: 'desc' }, take: 20 });
-          const text = users.map((u) => `• ${u.firstName || '?'} (@${u.username || '—'}) \`${u.telegramId}\` ${u.isBanned ? '🚫' : '✅'}`).join('\n');
-          await bot.sendMessage(chatId, `👥 *Users (${users.length}):*\n\n${text}`, { parse_mode: 'Markdown' });
+          // Use HTML mode to avoid Markdown parse errors from special chars in names/usernames
+          const escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const text = users.map((u) =>
+            `• ${escHtml(u.firstName || '?')} (@${escHtml(u.username || '—')}) <code>${u.telegramId}</code> ${u.isBanned ? '🚫' : '✅'}`
+          ).join('\n');
+          const chunks = [];
+          const lines = text.split('\n');
+          let chunk = `<b>👥 Users (${users.length}):</b>\n\n`;
+          for (const line of lines) {
+            if ((chunk + line + '\n').length > 3800) { chunks.push(chunk); chunk = ''; }
+            chunk += line + '\n';
+          }
+          if (chunk.trim()) chunks.push(chunk);
+          for (const c of chunks) await bot.sendMessage(chatId, c, { parse_mode: 'HTML' });
           return;
         }
 

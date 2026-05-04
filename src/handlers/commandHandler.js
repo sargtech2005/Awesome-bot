@@ -189,25 +189,75 @@ function registerCommands(bot) {
       } catch (e) { results.push(`❌ Anthropic: ${e.message.slice(0,60)}`); }
     } else results.push('⏭️ Anthropic: No key set');
 
-    // Test Omega GET (confirmed: { success, sessionId, response })
+    // Test OmegaTech Claude-Pro (correct params: action, model, chatStyle, tools)
     try {
       const t = Date.now();
-      const { data } = await axios.get(`${OMEGA}?prompt=${encodeURIComponent(testPrompt)}`, { timeout: 20000 });
+      const params = new URLSearchParams({
+        action: 'chat', prompt: testPrompt,
+        model: 'deepseek-v3.2', chatStyle: 'chat', tools: 'none', clearSession: 'true',
+      });
+      const { data } = await axios.get(`${OMEGA}?${params}`, { timeout: 25000 });
       if (data?.success && data?.response) {
-        results.push(`✅ Omega (${Date.now()-t}ms): "${data.response.slice(0,35)}" | session=${data.sessionId}`);
+        results.push(`✅ OmegaPro (${Date.now()-t}ms): "${data.response.slice(0,35)}" [${data.model}]`);
       } else {
-        results.push(`⚠️ Omega responded but unexpected format: ${JSON.stringify(data).slice(0,60)}`);
+        results.push(`⚠️ OmegaPro unexpected format: ${JSON.stringify(data).slice(0,60)}`);
       }
-    } catch (e) { results.push(`❌ Omega: ${e.message.slice(0,80)}`); }
+    } catch (e) { results.push(`❌ OmegaPro: ${e.message.slice(0,80)}`); }
 
-
-    // Test Pollinations
+    // Test OmegaTech Claude-Simple (/api/ai/Claude?text=...)
     try {
       const t = Date.now();
-      const { data } = await axios.post('https://text.pollinations.ai/', { messages:[{role:'user',content:testPrompt}], model:'mistral' }, { headers:{'Content-Type':'application/json'}, timeout: 15000 });
-      const text = typeof data === 'string' ? data : JSON.stringify(data).slice(0,50);
-      results.push(`✅ Pollinations (${Date.now()-t}ms): ${text.slice(0,40)}`);
-    } catch (e) { results.push(`❌ Pollinations: ${e.message.slice(0,60)}`); }
+      const simpleBase = 'https://my-api-rzmb.onrender.com/api/ai/Claude';
+      const { data } = await axios.get(`${simpleBase}?text=${encodeURIComponent(testPrompt)}`, { timeout: 20000 });
+      if (data?.success && data?.result) {
+        results.push(`✅ OmegaSimple (${Date.now()-t}ms): "${data.result.slice(0,35)}"`);
+      } else {
+        results.push(`⚠️ OmegaSimple unexpected format: ${JSON.stringify(data).slice(0,60)}`);
+      }
+    } catch (e) { results.push(`❌ OmegaSimple: ${e.message.slice(0,80)}`); }
+
+
+    // Test Pollinations GET (keyless)
+    try {
+      const t = Date.now();
+      const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(testPrompt)}`, { timeout: 15000, responseType: 'text' });
+      const text = typeof data === 'string' ? data.slice(0, 40) : '(non-string)';
+      results.push(`✅ Pollinations-GET (${Date.now()-t}ms): ${text}`);
+    } catch (e) { results.push(`❌ Pollinations-GET: ${e.message.slice(0,60)}`); }
+
+    // Test Pollinations POST (keyless)
+    try {
+      const t = Date.now();
+      const { data } = await axios.post('https://text.pollinations.ai/', { messages:[{role:'user',content:testPrompt}], model:'mistral', seed:42 }, { headers:{'Content-Type':'application/json'}, timeout: 15000, responseType: 'text' });
+      const text = typeof data === 'string' ? data.slice(0, 40) : JSON.stringify(data).slice(0,40);
+      results.push(`✅ Pollinations-POST (${Date.now()-t}ms): ${text}`);
+    } catch (e) { results.push(`❌ Pollinations-POST: ${e.message.slice(0,60)}`); }
+
+    // Test HuggingFace (keyless)
+    try {
+      const t = Date.now();
+      const hfHeaders = { 'Content-Type': 'application/json' };
+      if (process.env.HUGGINGFACE_API_KEY) hfHeaders['Authorization'] = `Bearer ${process.env.HUGGINGFACE_API_KEY}`;
+      const { data } = await axios.post(
+        'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
+        { inputs: `<s>[INST] ${testPrompt} [/INST]`, parameters: { max_new_tokens: 20, return_full_text: false } },
+        { headers: hfHeaders, timeout: 20000 }
+      );
+      const text = Array.isArray(data) ? data[0]?.generated_text?.slice(0,40) : JSON.stringify(data).slice(0,40);
+      results.push(`✅ HuggingFace (${Date.now()-t}ms): ${text}`);
+    } catch (e) { results.push(`❌ HuggingFace: ${e.message.slice(0,60)}`); }
+
+    // Test Groq (needs key)
+    if (process.env.GROQ_API_KEY) {
+      try {
+        const t = Date.now();
+        const { data } = await axios.post('https://api.groq.com/openai/v1/chat/completions',
+          { model: 'llama3-8b-8192', messages: [{role:'user',content:testPrompt}], max_tokens: 20 },
+          { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 15000 }
+        );
+        results.push(`✅ Groq (${Date.now()-t}ms): ${data?.choices?.[0]?.message?.content?.slice(0,30)}`);
+      } catch (e) { results.push(`❌ Groq: ${e.message.slice(0,60)}`); }
+    } else results.push('⏭️ Groq: No GROQ_API_KEY set');
 
     await bot.sendMessage(msg.chat.id, `🔬 *API Test Results:*\n\n${results.join('\n')}`, { parse_mode: 'Markdown' });
   });
