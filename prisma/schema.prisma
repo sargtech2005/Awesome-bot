@@ -1,0 +1,114 @@
+// prisma/schema.prisma — v2
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int           @id @default(autoincrement())
+  telegramId      BigInt        @unique
+  username        String?
+  firstName       String?
+  lastName        String?
+  isAdmin         Boolean       @default(false)
+  isBanned        Boolean       @default(false)
+  isWhitelisted   Boolean       @default(true)
+  sessionId       String?
+  mode            String        @default("chat")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  messages        Message[]
+  fileSessions    FileSession[]
+  memories        Memory[]
+  projects        Project[]
+  stats           UserStats?
+
+  @@map("users")
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  role        String
+  content     String
+  mode        String   @default("chat")
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("messages")
+}
+
+model Memory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("memories")
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  name        String
+  extractDir  String
+  originalZip String?
+  source      String   @default("upload")
+  sourceUrl   String?
+  fileCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model FileSession {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  fileName    String
+  filePath    String
+  fileType    String
+  isProcessed Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("file_sessions")
+}
+
+model UserStats {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  totalMessages   Int      @default(0)
+  totalFiles      Int      @default(0)
+  totalZips       Int      @default(0)
+  totalEdits      Int      @default(0)
+  totalCodeGens   Int      @default(0)
+  lastActiveAt    DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_stats")
+}
+
+model BroadcastLog {
+  id        Int      @id @default(autoincrement())
+  message   String
+  sentTo    Int
+  sentBy    BigInt
+  createdAt DateTime @default(now())
+
+  @@map("broadcast_logs")
+}

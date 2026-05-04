@@ -1,0 +1,35 @@
+{
+  "name": "omegatech-claude-bot",
+  "version": "2.0.0",
+  "description": "OmegaTech Claude AI Telegram Bot v2 — ZIP IDE, GitHub clone, memory, admin dashboard, inline keyboards",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "db:migrate": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.14.0",
+    "adm-zip": "^0.5.14",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "form-data": "^4.0.0",
+    "fs-extra": "^11.2.0",
+    "mime-types": "^2.1.35",
+    "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.66.0",
+    "simple-git": "^3.25.0",
+    "winston": "^3.13.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "prisma": "^5.14.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

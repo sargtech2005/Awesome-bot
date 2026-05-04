@@ -1,0 +1,95 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  OmegaTech Claude Bot v2 — Pterodactyl / Node.js Requirements
+# ─────────────────────────────────────────────────────────────────────────────
+#
+#  This file is for reference and Pterodactyl panel documentation.
+#  Actual installation is done via:  npm install
+#
+#  Node.js version required: >= 18.0.0  (LTS 20.x recommended)
+#  Package manager: npm (comes with Node.js)
+#
+#  ── SYSTEM DEPENDENCIES (install on your server/panel OS) ────────────────────
+#
+#  Ubuntu/Debian:
+#    apt-get install -y git curl build-essential python3
+#
+#  Alpine (Docker):
+#    apk add --no-cache git python3 make g++
+#
+#  These are needed for:
+#    - git         → GitHub repo cloning (simple-git)
+#    - build-essential / make / g++ / python3 → native npm module compilation
+#
+# ─────────────────────────────────────────────────────────────────────────────
+#  NPM PACKAGES (auto-installed by: npm install)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@prisma/client@^5.14.0
+# PostgreSQL ORM — user sessions, message history, projects, stats
+
+adm-zip@^0.5.14
+# ZIP file extraction and repacking
+
+axios@^1.7.2
+# HTTP client — OmegaTech API calls, Telegram file downloads, Anthropic API
+
+dotenv@^16.4.5
+# Load .env environment variables
+
+form-data@^4.0.0
+# Multipart form data for file uploads
+
+fs-extra@^11.2.0
+# Extended filesystem utilities
+
+mime-types@^2.1.35
+# Detect file MIME types from extensions
+
+node-cron@^3.0.3
+# Scheduled jobs — hourly temp file cleanup
+
+node-telegram-bot-api@^0.66.0
+# Telegram Bot API wrapper
+
+simple-git@^3.25.0
+# GitHub repo cloning
+
+winston@^3.13.0
+# Production logging
+
+winston-daily-rotate-file@^5.0.0
+# Log rotation by day
+
+# ── DEV ONLY (not installed in production) ────────────────────────────────────
+nodemon@^3.1.4
+# Auto-restart during development (npm run dev)
+
+prisma@^5.14.0
+# Prisma CLI for migrations and schema management
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  PTERODACTYL SETUP CHECKLIST
+# ─────────────────────────────────────────────────────────────────────────────
+#
+#  1. Server RAM:    8192 MB
+#  2. Disk:         10240 MB
+#  3. Node.js egg:  v20 LTS (or generic Node.js egg)
+#  4. Startup cmd:  node src/index.js
+#
+#  Environment variables to set in Pterodactyl panel:
+#    BOT_TOKEN           = your Telegram bot token
+#    ADMIN_CHAT_ID       = your Telegram user ID
+#    DATABASE_URL        = postgresql://user:pass@host:5432/dbname
+#    CLAUDE_API_BASE     = https://my-api-rzmb.onrender.com/api/ai/Claude-pro
+#    ANTHROPIC_API_KEY   = sk-ant-... (optional, for image vision)
+#    NODE_ENV            = production
+#    MAX_FILE_SIZE_MB    = 50
+#    LOG_LEVEL           = info
+#    MAX_MESSAGES_PER_MINUTE = 20
+#
+#  First run commands (in Pterodactyl console):
+#    npm install
+#    npx prisma migrate deploy
+#    (then start the server)
+#
+# ─────────────────────────────────────────────────────────────────────────────
