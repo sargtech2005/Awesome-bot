@@ -117,7 +117,26 @@ function registerMessageHandler(bot, zipSessionStore, pendingEditsStore, pending
         }
       }
 
-      // ── CODE GENERATION → ZIP ────────────────────────────────────
+      // ── SAVED PROJECT ANALYZE (no active zip session but has saved project) ──
+      if (/\b(analyze|explain|review|audit|summarize|debug|check)\b.*(project|code|bot|app|codebase)/i.test(text) ||
+          /my (project|code|bot|app|codebase)/i.test(text)) {
+        if (!zipSessions.get(userId)) {
+          const { getUserProjects } = require('../services/projectService');
+          const fse = require('fs-extra');
+          const projects = await getUserProjects(dbUser.id);
+          const latest = projects[0];
+          if (latest && latest.extractDir && await fse.pathExists(latest.extractDir)) {
+            const { buildManifest } = require('../services/zipService');
+            const fakeSession = {
+              extractDir: latest.extractDir,
+              manifest: buildManifest(latest.extractDir),
+              originalName: latest.name,
+            };
+            zipSessions.set(userId, fakeSession); // restore session
+            return await handleZipAnalyze(bot, chatId, userId, fakeSession, text, dbUser);
+          }
+        }
+      }
       if (/\b(generate|create|write|build|make)\b.+(zip|send.*file|download)/i.test(text)) {
         return await handleCodeGenAndZip(bot, chatId, userId, text, dbUser);
       }

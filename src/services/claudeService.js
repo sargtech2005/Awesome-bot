@@ -204,12 +204,95 @@ async function incrementMessages(dbUserId) {
   });
 }
 
+// ─── CONVERSATION HISTORY ─────────────────────────────────────────────────────
+async function getConversationHistory(dbUserId) {
+  const messages = await prisma.message.findMany({
+    where: { userId: dbUserId },
+    orderBy: { createdAt: 'asc' },
+    take: MAX_HISTORY,
+  });
+  return messages.map((m) => ({ role: m.role, content: m.content }));
+}
+
+// ─── PROJECT CONTEXT INJECTION ────────────────────────────────────────────────
+// Loads the user's most recent saved project from DB and reads its files from disk
+async function getProjectContext(dbUserId) {
+  const fs = require('fs-extra');
+  const path = require('path');
+
+  // Text-based extensions worth including
+  const TEXT_EXTS = new Set([
+    '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+    '.py', '.rb', '.php', '.go', '.rs', '.java', '.cs', '.cpp', '.c', '.h',
+    '.json', '.yaml', '.yml', '.toml', '.md', '.txt', '.html', '.css', '.scss',
+    '.sql', '.sh', '.bash', '.prisma', '.graphql', '.env.example',
+    '.gitignore', '.eslintrc', '.prettierrc', 'Dockerfile',
+  ]);
+
+  try {
+    const project = await prisma.project.findFirst({
+      where: { userId: dbUserId },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (!project || !project.extractDir) return '';
+
+    const dirExists = await fs.pathExists(project.extractDir);
+    if (!dirExists) return '';
+
+    // Walk the directory and collect text files
+    let context = `\n\n[PROJECT: "${project.name}" — ${project.fileCount} files]\n`;
+    let totalChars = 0;
+    const MAX_CHARS = 40000;
+
+    const walk = async (dir, base) => {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (totalChars >= MAX_CHARS) break;
+        const fullPath = path.join(dir, entry.name);
+        const relPath = path.join(base, entry.name);
+        // Skip noise
+        if (/node_modules|\.git|dist|build/.test(relPath)) continue;
+        if (entry.isDirectory()) {
+          await walk(fullPath, relPath);
+        } else {
+          const ext = path.extname(entry.name).toLowerCase();
+          const base2 = path.basename(entry.name);
+          if (!TEXT_EXTS.has(ext) && !TEXT_EXTS.has(base2)) continue;
+          try {
+            const content = await fs.readFile(fullPath, 'utf8');
+            if (content.length > 15000) continue; // skip huge single files
+            const block = `\n### FILE: ${relPath}\n\`\`\`\n${content}\n\`\`\`\n`;
+            context += block;
+            totalChars += block.length;
+          } catch (_) {}
+        }
+      }
+    };
+
+    await walk(project.extractDir, '');
+    return context;
+  } catch (err) {
+    logger.warn(`getProjectContext error: ${err.message}`);
+    return '';
+  }
+}
+
 // ─── PUBLIC: askClaude ────────────────────────────────────────────────────────
 // Priority: 1) Anthropic direct  2) OmegaTech Claude-Pro  3) OmegaTech Claude  4) Free APIs
 async function askClaude(telegramId, prompt, dbUser) {
   const mode       = dbUser.mode || 'chat';
   const modePrefix = MODE_PREFIXES[mode] || '';
   const memCtx     = await getUserMemoryContext(dbUser.id);
+
+  // ── Inject conversation history + project context ──────────────
+  const history      = await getConversationHistory(dbUser.id);
+  const projectCtx   = await getProjectContext(dbUser.id);
+
+  // Build a system-style preamble so Claude knows about the project
+  const systemPreamble = projectCtx
+    ? `You are D'Awesome Bot, a helpful AI assistant on Telegram powered by Claude.\nYou have direct access to the user's uploaded project files shown below. NEVER say you cannot see the code — you already have it.\nAlways read the project files before answering questions about the project.\n${projectCtx}\n[END OF PROJECT FILES]\n`
+    : `You are D'Awesome Bot, a helpful AI assistant on Telegram powered by Claude. Answer clearly and accurately.\n`;
+
   const fullPrompt = `${modePrefix}${memCtx}${prompt}`;
 
   let responseText = null;
@@ -218,9 +301,21 @@ async function askClaude(telegramId, prompt, dbUser) {
   if (ANTHROPIC_API_KEY) {
     try {
       logger.info(`Anthropic direct | user=${telegramId} mode=${mode}`);
+
+      // Build messages array: prior history + current user message
+      const messages = [
+        ...history,
+        { role: 'user', content: fullPrompt },
+      ];
+
       const { data } = await axios.post(
         'https://api.anthropic.com/v1/messages',
-        { model: ANTHROPIC_MODEL, max_tokens: 4096, messages: [{ role: 'user', content: fullPrompt }] },
+        {
+          model: ANTHROPIC_MODEL,
+          max_tokens: 4096,
+          system: systemPreamble,
+          messages,
+        },
         {
           headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
           timeout: 120000,
@@ -237,9 +332,13 @@ async function askClaude(telegramId, prompt, dbUser) {
   if (!responseText) {
     try {
       logger.info(`OmegaPro | user=${telegramId} session=${dbUser.sessionId || 'new'}`);
-      const result = await _askOmegaPro(fullPrompt, dbUser.sessionId);
+      // Omega has no separate system param — prepend preamble + history into prompt
+      const historyText = history.length
+        ? '\n[Previous conversation:\n' + history.map(m => `${m.role}: ${m.content}`).join('\n') + ']\n'
+        : '';
+      const omegaPrompt = systemPreamble + historyText + fullPrompt;
+      const result = await _askOmegaPro(omegaPrompt, dbUser.sessionId);
       responseText = result.text;
-      // Persist new sessionId so conversation history works
       if (result.sessionId && result.sessionId !== dbUser.sessionId) {
         await saveSessionId(telegramId, result.sessionId);
         dbUser.sessionId = result.sessionId;
@@ -254,7 +353,7 @@ async function askClaude(telegramId, prompt, dbUser) {
   if (!responseText) {
     try {
       logger.info(`OmegaSimple | user=${telegramId}`);
-      const result = await _askOmegaSimple(fullPrompt);
+      const result = await _askOmegaSimple(systemPreamble + fullPrompt);
       responseText = result.text;
     } catch (e) {
       logger.warn(`OmegaSimple failed: ${e.message}`);
@@ -264,7 +363,7 @@ async function askClaude(telegramId, prompt, dbUser) {
   // ── 4. Free fallback APIs ─────────────────────────────────────
   if (!responseText) {
     logger.warn(`All Omega APIs failed for ${telegramId} — trying free fallbacks`);
-    responseText = await _askFreeApis(fullPrompt);
+    responseText = await _askFreeApis(systemPreamble + fullPrompt);
   }
 
   await saveMessage(dbUser.id, 'user', prompt, mode);
@@ -287,11 +386,29 @@ async function askClaudeStream(telegramId, prompt, dbUser, onChunk) {
   const memCtx     = await getUserMemoryContext(dbUser.id);
   const fullPrompt = `${modePrefix}${memCtx}${prompt}`;
 
+  // Inject history and project context — same as askClaude
+  const history    = await getConversationHistory(dbUser.id);
+  const projectCtx = await getProjectContext(dbUser.id);
+  const systemPreamble = projectCtx
+    ? `You are D'Awesome Bot, a helpful AI assistant on Telegram powered by Claude.\nYou have direct access to the user's uploaded project files shown below. NEVER say you cannot see the code — you already have it.\nAlways read the project files before answering questions about the project.\n${projectCtx}\n[END OF PROJECT FILES]\n`
+    : `You are D'Awesome Bot, a helpful AI assistant on Telegram powered by Claude. Answer clearly and accurately.\n`;
+
+  const messages = [
+    ...history,
+    { role: 'user', content: fullPrompt },
+  ];
+
   let httpRes;
   try {
     httpRes = await axios.post(
       'https://api.anthropic.com/v1/messages',
-      { model: ANTHROPIC_MODEL, max_tokens: 4096, stream: true, messages: [{ role: 'user', content: fullPrompt }] },
+      {
+        model: ANTHROPIC_MODEL,
+        max_tokens: 4096,
+        stream: true,
+        system: systemPreamble,
+        messages,
+      },
       {
         headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         responseType: 'stream', timeout: 120000,
